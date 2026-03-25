@@ -1,0 +1,60 @@
+#!/usr/bin/env bash
+# hooks/prepare-commit-msg - ai-prov Git Hook
+#
+# コミットメッセージにAIセッション情報を追加する
+# インストール先: .git/hooks/prepare-commit-msg
+
+COMMIT_MSG_FILE="$1"
+COMMIT_SOURCE="${2:-}"  # message, template, merge, squash, commit
+
+# マージ/squash/amendコミットはスキップ
+case "$COMMIT_SOURCE" in
+  merge|squash) exit 0 ;;
+esac
+
+# ai-prov が初期化されているか確認
+GIT_ROOT=$(git rev-parse --show-toplevel 2>/dev/null) || exit 0
+PROV_DIR="${GIT_ROOT}/.ai-prov"
+
+[[ -d "$PROV_DIR" ]] || exit 0
+
+# アクティブセッションの確認
+ACTIVE_SESSION_FILE="${PROV_DIR}/active_session"
+[[ -f "$ACTIVE_SESSION_FILE" ]] || exit 0
+
+SESSION_ID=$(cat "$ACTIVE_SESSION_FILE")
+SESSION_FILE="${PROV_DIR}/sessions/${SESSION_ID}.json"
+[[ -f "$SESSION_FILE" ]] || exit 0
+
+# 既にトレーラーが含まれているか確認
+if grep -q "^AI-Session:" "$COMMIT_MSG_FILE" 2>/dev/null; then
+  exit 0
+fi
+
+# 現在のメッセージを読み込む
+CURRENT_MSG=$(cat "$COMMIT_MSG_FILE")
+
+# セッション情報を取得（jqがあれば詳細、なければIDのみ）
+SESSION_SUMMARY=""
+if command -v jq &>/dev/null; then
+  SESSION_SUMMARY=$(jq -r '.summary // .problem_statement // ""' "$SESSION_FILE" 2>/dev/null || echo "")
+fi
+
+# トレーラーを追加
+{
+  echo "$CURRENT_MSG"
+  echo ""
+  echo "AI-Session: ${SESSION_ID}"
+  if [[ -n "$SESSION_SUMMARY" ]]; then
+    echo "# AI概要: ${SESSION_SUMMARY:0:80}"
+  fi
+} > "$COMMIT_MSG_FILE"
+
+# コメントとして情報を追加（git commit -v で表示される）
+cat >> "$COMMIT_MSG_FILE" << EOF
+#
+# --- AI Provenance ---
+# セッションID: ${SESSION_ID}
+# ファイル: ${SESSION_FILE}
+# セッションの詳細を確認: ai-prov record show ${SESSION_ID:0:8}
+EOF
