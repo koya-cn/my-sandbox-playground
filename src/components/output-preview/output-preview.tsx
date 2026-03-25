@@ -18,14 +18,14 @@ import { ScopeSelector } from "@/components/scope-selector/scope-selector";
 import { InfoLink } from "@/components/ui/info-link";
 
 export function OutputPreview() {
-  const { settings, includeMetadata, generateOutput, validate, validationIssues, selectedScope, setLanguage } =
+  const { settings, generateOutput, validate, validationIssues, selectedScope, setLanguage } =
     useGeneratorStore();
   const [copied, setCopied] = useState(false);
   const [output, setOutput] = useState("{}");
 
   useEffect(() => {
     setOutput(JSON.stringify(generateOutput(), null, 2));
-  }, [settings, includeMetadata, generateOutput]);
+  }, [settings, generateOutput]);
 
   const handleCopy = async () => {
     await navigator.clipboard.writeText(output);

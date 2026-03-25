@@ -56,9 +56,6 @@ export interface SettingsScope {
 }
 
 export interface ClaudeCodeSettings {
-  _schemaVersion?: string;
-  _generatedAt?: string;
-  _generatorVersion?: string;
   language?: string;
   permissions: {
     allow: PermissionRule[];

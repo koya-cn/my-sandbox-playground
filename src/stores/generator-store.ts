@@ -42,7 +42,6 @@ interface GeneratorState {
   selectedPresetId: string | null;
   appliedAddonIds: string[];
   selectedScope: SettingsScope;
-  includeMetadata: boolean;
 
   // ドライラン
   dryRunInput: DryRunInput;
@@ -68,7 +67,6 @@ interface GeneratorState {
   setSandboxEnabled: (enabled: boolean) => void;
   setSandboxHosts: (hosts: string[]) => void;
   setScope: (scope: SettingsScope) => void;
-  setIncludeMetadata: (include: boolean) => void;
   runDryRun: (input: DryRunInput) => void;
   setDryRunInput: (input: Partial<DryRunInput>) => void;
   validate: () => ValidationIssue[];
@@ -76,6 +74,7 @@ interface GeneratorState {
 }
 
 const emptySettings: ClaudeCodeSettings = {
+  language: "日本語",
   permissions: {
     allow: [],
     deny: [],
@@ -118,7 +117,6 @@ export const useGeneratorStore = create<GeneratorState>((set, get) => ({
   selectedPresetId: null,
   appliedAddonIds: [],
   selectedScope: SCOPES[0],
-  includeMetadata: true,
 
   dryRunInput: { action: "Read", path: "", command: "" },
   dryRunResult: null,
@@ -286,10 +284,6 @@ export const useGeneratorStore = create<GeneratorState>((set, get) => ({
     set({ selectedScope: scope });
   },
 
-  setIncludeMetadata: (include: boolean) => {
-    set({ includeMetadata: include });
-  },
-
   runDryRun: (input: DryRunInput) => {
     const { settings } = get();
     const result = evaluateRules(settings, input);
@@ -310,7 +304,7 @@ export const useGeneratorStore = create<GeneratorState>((set, get) => ({
   },
 
   generateOutput: () => {
-    const { settings, includeMetadata } = get();
-    return generateSettingsJson(settings, { includeMetadata });
+    const { settings } = get();
+    return generateSettingsJson(settings);
   },
 }));

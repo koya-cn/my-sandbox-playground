@@ -9,7 +9,6 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
-import { Switch } from "@/components/ui/switch";
 
 const scopeDescriptions: Record<string, string> = {
   enterprise: "組織全体に強制適用。管理者のみ設定可能",
@@ -26,8 +25,7 @@ const scopePriority: Record<string, number> = {
 };
 
 export function ScopeSelector() {
-  const { selectedScope, setScope, includeMetadata, setIncludeMetadata } =
-    useGeneratorStore();
+  const { selectedScope, setScope } = useGeneratorStore();
 
   return (
     <div className="space-y-3">
@@ -65,21 +63,6 @@ export function ScopeSelector() {
             ))}
           </SelectContent>
         </Select>
-      </div>
-      <div className="flex items-center gap-2">
-        <Switch
-          id="include-metadata"
-          checked={includeMetadata}
-          onCheckedChange={setIncludeMetadata}
-        />
-        <div>
-          <Label htmlFor="include-metadata" className="text-sm">
-            Metadata を含める
-          </Label>
-          <p className="text-muted-foreground text-xs">
-            生成日時・バージョン情報を JSON に付与
-          </p>
-        </div>
       </div>
     </div>
   );

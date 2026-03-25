@@ -25,8 +25,7 @@ Next.js 16 静的エクスポート、GitHub Pages でホスティング。
 - 「あとで仕様書を更新して」とユーザーに言わせない
 
 ### JSON出力のフィールド順序
-- メタ情報（`_schemaVersion`, `_generatedAt`, `_generatorVersion`）は常にJSONの最上部に配置する
-- 設定本体（`permissions`, `permissionMode`, `sandbox`, `autoMode`）はメタ情報の後に配置する
+- `language`（設定時のみ）→ `permissions` → `permissionMode` → `sandbox` → `autoMode` の順で配置する
 
 ### UI設計原則
 - 各セクションのカードヘッダーに公式ドキュメントへの InfoLink を配置する（`code.claude.com/docs/en/` 配下）
