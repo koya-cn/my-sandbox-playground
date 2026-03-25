@@ -291,13 +291,39 @@ Vibe Coding プリセットにおける auto モードのフォールバック: 
 | Read/Edit: `.env`, `**/.env` | 環境変数ファイル | deny |
 | 動作モード | acceptEdits | — |
 
+Add-on プリセット（マージ合成）
+
+ベースプリセット（Frontend, Hardened Security 等）に加え、特定のツールチェーン用の **Add-on プリセット** を提供する。Add-on はベースプリセットを置換せず、既存ルールに重複なくマージ（合成）される。
+
+**プリセットの型定義**:
+* `type: "base"` — 従来のプリセット。適用時に既存ルールを置換する（デフォルト）
+* `type: "addon"` — 既存ルールにマージして追加。複数の Add-on を同時に適用可能
+
+**組み込み Add-on プリセット**:
+
+| Add-on | allow | ask | 用途 |
+|--------|-------|-----|------|
+| **Git Operations** | `git *` | `git commit *`, `git push *` | Git 操作全般を許可し、コミット・プッシュは確認 |
+| **Docker Operations** | `docker ps *`, `docker logs *`, `docker compose up *`, `docker compose down *`, `docker build *` | `docker rm *`, `docker rmi *`, `docker system prune *`, `docker push *` | Docker 操作の許可と破壊系の確認 |
+
+**マージの動作**:
+* ベースプリセット適用時、適用済みの Add-on は自動的に再マージされる（Add-on が外れない）
+* Add-on のトグルオフ時は、該当 Add-on のルールのみが除去される
+* ルールの重複判定は `tool` + `path` + `command` の完全一致で行う
+* Clear All 時はベースプリセットと全 Add-on がリセットされる
+
+**UI 表示**:
+* ベースプリセットと Add-on は分離して表示する
+* Add-on ボタンは `+` / `-` のプレフィックスで適用状態を示す
+* Add-on カテゴリは `addon` として、専用の配色（amber）で Badge 表示する
+
 カスタムプリセットの作成
 
 上記の組み込みプリセットに加え、ユーザーが独自のプリセットを定義・保存・共有できる機能を提供する。
 
 * **保存形式**: プリセットは JSON ファイルとしてエクスポートし、`.claude/presets/` ディレクトリまたは任意のパスに保存
 * **共有**: Git リポジトリにプリセットファイルを含めることで、チーム間で統一的な権限設定を適用可能
-* **合成（Compose）**: 複数のプリセットを組み合わせて適用可能（例: 「Python バックエンド」+「Hardened Security」）。競合するルールは deny 優先の原則に従い解決
+* **合成（Compose）**: 複数のプリセットを組み合わせて適用可能（例: 「Python バックエンド」+「Git Operations」Add-on）。競合するルールは deny 優先の原則に従い解決
 
 パス構文のインラインバリデーション
 
@@ -338,6 +364,27 @@ Vibe Coding プリセットにおける auto モードのフォールバック: 
 * **初心者向けのヒント**（例: 「Deny は常に Allow に優先する Fail-closed 設計です」）
 * **Permission Mode**: 各モードに対して、推奨ユースケースとリスクレベルに加え、2〜3文の詳細説明を表示する。`bypassPermissions` 選択時は赤い警告アラートを表示する。
 * **Rule Editor**: Deny / Ask / Allow の各タブ内に、そのアクションの意味と使用例を背景色付きブロックで表示する。
+
+Language 設定
+
+Output セクションに `language` トグルを配置する。ON にすると生成 JSON に `"language": "日本語"` が含まれ、Claude Code の応答言語が日本語に設定される。
+
+* **配置位置**: Scope セレクタと Validate ボタンの間
+* **JSON 出力順序**: `language` フィールドはメタ情報の直後、`permissions` の直前に配置する
+* **デフォルト**: OFF（language フィールドを出力しない）
+
+Output Scope の優先度表示
+
+Scope セレクタの各項目に以下の情報を追加表示する:
+
+| スコープ | Priority | 説明 |
+|----------|----------|------|
+| Enterprise | 1 | 組織全体に強制適用。管理者のみ設定可能 |
+| User | 2 | 全プロジェクト共通のユーザー個人設定 |
+| Shared Project | 3 | チームで共有。Git で管理可能 |
+| Local Project | 4 | 個人用のプロジェクト設定。Git 管理外 |
+
+Output path の表示は、プライマリカラーの枠線・背景色で強調し、スコープ名の Badge を併記する。
 
 リアルタイムプレビュー連動
 
@@ -580,6 +627,7 @@ JSON フィールド順序の規約
   "_schemaVersion": "1.0.0",
   "_generatedAt": "2026-03-25T00:00:00Z",
   "_generatorVersion": "1.0.0",
+  "language": "日本語",
   "permissions": { ... },
   "permissionMode": "...",
   "sandbox": { ... },

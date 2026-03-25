@@ -40,6 +40,7 @@ interface GeneratorState {
   // 設定データ
   settings: ClaudeCodeSettings;
   selectedPresetId: string | null;
+  appliedAddonIds: string[];
   selectedScope: SettingsScope;
   includeMetadata: boolean;
 
@@ -52,6 +53,8 @@ interface GeneratorState {
 
   // アクション
   applyPreset: (presetId: string) => void;
+  mergePreset: (presetId: string) => void;
+  unmergePreset: (presetId: string) => void;
   clearAll: () => void;
   setPermissionMode: (mode: PermissionMode) => void;
   addRule: (action: PermissionAction, rule: PermissionRule) => void;
@@ -61,6 +64,7 @@ interface GeneratorState {
     index: number,
     rule: PermissionRule
   ) => void;
+  setLanguage: (language: string | undefined) => void;
   setSandboxEnabled: (enabled: boolean) => void;
   setSandboxHosts: (hosts: string[]) => void;
   setScope: (scope: SettingsScope) => void;
@@ -91,9 +95,28 @@ const emptySettings: ClaudeCodeSettings = {
   },
 };
 
+function isSameRule(a: PermissionRule, b: PermissionRule): boolean {
+  return a.tool === b.tool && (a.path ?? "") === (b.path ?? "") && (a.command ?? "") === (b.command ?? "");
+}
+
+function mergeRules(existing: PermissionRule[], incoming: PermissionRule[]): PermissionRule[] {
+  const merged = [...existing];
+  for (const rule of incoming) {
+    if (!merged.some((r) => isSameRule(r, rule))) {
+      merged.push(rule);
+    }
+  }
+  return merged;
+}
+
+function removeRules(existing: PermissionRule[], toRemove: PermissionRule[]): PermissionRule[] {
+  return existing.filter((r) => !toRemove.some((rm) => isSameRule(r, rm)));
+}
+
 export const useGeneratorStore = create<GeneratorState>((set, get) => ({
   settings: { ...emptySettings },
   selectedPresetId: null,
+  appliedAddonIds: [],
   selectedScope: SCOPES[0],
   includeMetadata: true,
 
@@ -105,15 +128,27 @@ export const useGeneratorStore = create<GeneratorState>((set, get) => ({
   applyPreset: (presetId: string) => {
     const preset = presets.find((p) => p.id === presetId);
     if (!preset) return;
+    const { appliedAddonIds } = get();
+
+    // ベースプリセットのルールから開始
+    let allow = [...preset.settings.permissions.allow];
+    let deny = [...preset.settings.permissions.deny];
+    let ask = [...preset.settings.permissions.ask];
+
+    // 適用済みアドオンを再マージ
+    for (const addonId of appliedAddonIds) {
+      const addon = presets.find((p) => p.id === addonId);
+      if (!addon) continue;
+      allow = mergeRules(allow, addon.settings.permissions.allow);
+      deny = mergeRules(deny, addon.settings.permissions.deny);
+      ask = mergeRules(ask, addon.settings.permissions.ask);
+    }
+
     set({
       settings: {
         ...emptySettings,
         ...preset.settings,
-        permissions: {
-          allow: [...preset.settings.permissions.allow],
-          deny: [...preset.settings.permissions.deny],
-          ask: [...preset.settings.permissions.ask],
-        },
+        permissions: { allow, deny, ask },
         sandbox: preset.settings.sandbox
           ? { ...emptySettings.sandbox, ...preset.settings.sandbox }
           : emptySettings.sandbox,
@@ -124,10 +159,45 @@ export const useGeneratorStore = create<GeneratorState>((set, get) => ({
     });
   },
 
+  mergePreset: (presetId: string) => {
+    const preset = presets.find((p) => p.id === presetId);
+    if (!preset) return;
+    set((state) => ({
+      settings: {
+        ...state.settings,
+        permissions: {
+          allow: mergeRules(state.settings.permissions.allow, preset.settings.permissions.allow),
+          deny: mergeRules(state.settings.permissions.deny, preset.settings.permissions.deny),
+          ask: mergeRules(state.settings.permissions.ask, preset.settings.permissions.ask),
+        },
+      },
+      appliedAddonIds: [...state.appliedAddonIds, presetId],
+      dryRunResult: null,
+    }));
+  },
+
+  unmergePreset: (presetId: string) => {
+    const preset = presets.find((p) => p.id === presetId);
+    if (!preset) return;
+    set((state) => ({
+      settings: {
+        ...state.settings,
+        permissions: {
+          allow: removeRules(state.settings.permissions.allow, preset.settings.permissions.allow),
+          deny: removeRules(state.settings.permissions.deny, preset.settings.permissions.deny),
+          ask: removeRules(state.settings.permissions.ask, preset.settings.permissions.ask),
+        },
+      },
+      appliedAddonIds: state.appliedAddonIds.filter((id) => id !== presetId),
+      dryRunResult: null,
+    }));
+  },
+
   clearAll: () => {
     set({
       settings: { ...emptySettings },
       selectedPresetId: null,
+      appliedAddonIds: [],
       validationIssues: [],
       dryRunResult: null,
     });
@@ -183,6 +253,13 @@ export const useGeneratorStore = create<GeneratorState>((set, get) => ({
         selectedPresetId: null,
       };
     });
+  },
+
+  setLanguage: (language: string | undefined) => {
+    set((state) => ({
+      settings: { ...state.settings, language },
+      selectedPresetId: null,
+    }));
   },
 
   setSandboxEnabled: (enabled: boolean) => {

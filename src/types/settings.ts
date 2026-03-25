@@ -59,6 +59,7 @@ export interface ClaudeCodeSettings {
   _schemaVersion?: string;
   _generatedAt?: string;
   _generatorVersion?: string;
+  language?: string;
   permissions: {
     allow: PermissionRule[];
     deny: PermissionRule[];
@@ -73,7 +74,8 @@ export interface PresetDefinition {
   id: string;
   name: string;
   description: string;
-  category: "frontend" | "backend" | "security" | "experimental";
+  category: "frontend" | "backend" | "security" | "experimental" | "addon";
+  type?: "base" | "addon"; // default: "base"
   settings: ClaudeCodeSettings;
 }
 

@@ -13,11 +13,12 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { Switch } from "@/components/ui/switch";
 import { ScopeSelector } from "@/components/scope-selector/scope-selector";
 import { InfoLink } from "@/components/ui/info-link";
 
 export function OutputPreview() {
-  const { settings, includeMetadata, generateOutput, validate, validationIssues, selectedScope } =
+  const { settings, includeMetadata, generateOutput, validate, validationIssues, selectedScope, setLanguage } =
     useGeneratorStore();
   const [copied, setCopied] = useState(false);
   const [output, setOutput] = useState("{}");
@@ -68,6 +69,24 @@ export function OutputPreview() {
       </CardHeader>
       <CardContent className="space-y-4">
         <ScopeSelector />
+
+        <div className="flex items-center justify-between rounded-md border px-3 py-2">
+          <div className="space-y-0.5">
+            <label htmlFor="language-toggle" className="text-sm font-medium">
+              Language
+            </label>
+            <p className="text-xs text-muted-foreground">
+              応答言語を日本語に設定します
+            </p>
+          </div>
+          <Switch
+            id="language-toggle"
+            checked={settings.language === "日本語"}
+            onCheckedChange={(checked: boolean) =>
+              setLanguage(checked ? "日本語" : undefined)
+            }
+          />
+        </div>
 
         <div className="flex flex-wrap gap-2">
           <Button variant="outline" size="sm" onClick={handleValidate}>
@@ -123,14 +142,19 @@ export function OutputPreview() {
           </pre>
         </ScrollArea>
 
-        <div className="bg-muted/50 rounded-md px-3 py-2 text-xs text-muted-foreground space-y-1">
-          <p>
-            <span className="font-medium">Output path:</span>{" "}
-            <code>{selectedScope.path}</code>
-          </p>
-          <p>
+        <div className="rounded-lg border-2 border-primary/20 bg-primary/5 px-4 py-3 space-y-1.5">
+          <div className="flex items-center gap-2">
+            <span className="text-sm font-semibold text-primary">Output path</span>
+            <Badge variant="outline" className="text-[10px]">
+              {selectedScope.label}
+            </Badge>
+          </div>
+          <code className="block text-sm font-mono font-medium text-foreground">
+            {selectedScope.path}
+          </code>
+          <p className="text-xs text-muted-foreground">
             このファイルを上記のパスに配置してください。Git 管理する場合は{" "}
-            <code>.claude/settings.json</code>（Shared Project）を使用します。
+            <code className="font-medium">.claude/settings.json</code>（Shared Project）を使用します。
           </p>
         </div>
       </CardContent>

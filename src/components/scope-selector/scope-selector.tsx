@@ -11,6 +11,20 @@ import {
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 
+const scopeDescriptions: Record<string, string> = {
+  enterprise: "組織全体に強制適用。管理者のみ設定可能",
+  user: "全プロジェクト共通のユーザー個人設定",
+  "shared-project": "チームで共有。Git で管理可能",
+  "local-project": "個人用のプロジェクト設定。Git 管理外",
+};
+
+const scopePriority: Record<string, number> = {
+  enterprise: 1,
+  user: 2,
+  "shared-project": 3,
+  "local-project": 4,
+};
+
 export function ScopeSelector() {
   const { selectedScope, setScope, includeMetadata, setIncludeMetadata } =
     useGeneratorStore();
@@ -20,7 +34,7 @@ export function ScopeSelector() {
       <div className="space-y-1.5">
         <Label className="text-sm font-medium">Output Scope</Label>
         <p className="text-muted-foreground text-xs">
-          設定ファイルの配置先を選択します。上位スコープほど優先度が高くなります。
+          設定ファイルの配置先を選択します。Enterprise &gt; User &gt; Shared &gt; Local の順で優先されます。
         </p>
         <Select
           value={selectedScope.id}
@@ -37,9 +51,14 @@ export function ScopeSelector() {
             {SCOPES.map((scope) => (
               <SelectItem key={scope.id} value={scope.id}>
                 <div className="flex flex-col min-w-0">
-                  <span className="font-medium text-sm">{scope.label}</span>
+                  <div className="flex items-center gap-1.5">
+                    <span className="font-medium text-sm">{scope.label}</span>
+                    <span className="text-[10px] text-muted-foreground">
+                      Priority {scopePriority[scope.id]}
+                    </span>
+                  </div>
                   <span className="text-muted-foreground text-xs truncate">
-                    {scope.path}
+                    {scopeDescriptions[scope.id]}
                   </span>
                 </div>
               </SelectItem>

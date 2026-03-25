@@ -191,4 +191,47 @@ export const presets: PresetDefinition[] = [
       permissionMode: "acceptEdits",
     },
   },
+  // ── Addon Presets ──────────────────────────────
+  {
+    id: "git-operations",
+    name: "Git Operations",
+    description: "git 全般を許可し、commit / push は確認を要求",
+    category: "addon",
+    type: "addon",
+    settings: {
+      permissions: {
+        allow: [{ tool: "Bash", command: "git *" }],
+        deny: [],
+        ask: [
+          { tool: "Bash", command: "git commit *" },
+          { tool: "Bash", command: "git push *" },
+        ],
+      },
+    },
+  },
+  {
+    id: "docker-operations",
+    name: "Docker Operations",
+    description: "docker / docker compose コマンドを許可、破壊系は確認",
+    category: "addon",
+    type: "addon",
+    settings: {
+      permissions: {
+        allow: [
+          { tool: "Bash", command: "docker ps *" },
+          { tool: "Bash", command: "docker logs *" },
+          { tool: "Bash", command: "docker compose up *" },
+          { tool: "Bash", command: "docker compose down *" },
+          { tool: "Bash", command: "docker build *" },
+        ],
+        deny: [],
+        ask: [
+          { tool: "Bash", command: "docker rm *" },
+          { tool: "Bash", command: "docker rmi *" },
+          { tool: "Bash", command: "docker system prune *" },
+          { tool: "Bash", command: "docker push *" },
+        ],
+      },
+    },
+  },
 ];

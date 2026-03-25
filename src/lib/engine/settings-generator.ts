@@ -18,18 +18,22 @@ export function generateSettingsJson(
     meta._generatorVersion = GENERATOR_VERSION;
   }
 
-  const body: Record<string, unknown> = {
-    permissions: {
-      allow: settings.permissions.allow.filter(
-        (r) => r.tool && (r.path || r.command)
-      ),
-      deny: settings.permissions.deny.filter(
-        (r) => r.tool && (r.path || r.command)
-      ),
-      ask: settings.permissions.ask.filter(
-        (r) => r.tool && (r.path || r.command)
-      ),
-    },
+  const body: Record<string, unknown> = {};
+
+  if (settings.language) {
+    body.language = settings.language;
+  }
+
+  body.permissions = {
+    allow: settings.permissions.allow.filter(
+      (r) => r.tool && (r.path || r.command)
+    ),
+    deny: settings.permissions.deny.filter(
+      (r) => r.tool && (r.path || r.command)
+    ),
+    ask: settings.permissions.ask.filter(
+      (r) => r.tool && (r.path || r.command)
+    ),
   };
 
   if (settings.permissionMode && settings.permissionMode !== "default") {
