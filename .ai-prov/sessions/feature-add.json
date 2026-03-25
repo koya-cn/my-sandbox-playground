@@ -1,0 +1,40 @@
+{
+  "session_id": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+  "status": "committed",
+  "started_at": "2026-03-19T09:00:00Z",
+  "ended_at": "2026-03-19T10:30:00Z",
+  "tool": "claude-code",
+  "model": "claude-sonnet-4-6",
+  "problem_statement": "ユーザー認証にJWT（JSON Web Token）を使ったログイン機能を実装したい。/api/loginエンドポイントでメールとパスワードを受け取り、検証後にJWTを返す。",
+  "summary": "JWT認証のloginエンドポイントとmiddlewareを実装した",
+  "prompts": [
+    {
+      "role": "user",
+      "content": "Express.jsでJWT認証を実装してください。\n\n要件:\n- POST /api/login でメールとパスワードを受け取る\n- パスワードはbcryptでハッシュ化されている\n- 認証成功時に24時間有効なJWTを返す\n- 保護されたルートのためのauthMiddlewareを作る\n\n既存のUserモデル:\n```javascript\n// models/User.js\nconst userSchema = new Schema({\n  email: { type: String, required: true, unique: true },\n  passwordHash: { type: String, required: true }\n});\n```",
+      "timestamp": "2026-03-19T09:05:00Z"
+    },
+    {
+      "role": "user",
+      "content": "リフレッシュトークンの仕組みも追加してほしい。アクセストークンは15分、リフレッシュトークンは7日間有効にする。",
+      "timestamp": "2026-03-19T09:45:00Z"
+    },
+    {
+      "role": "user",
+      "content": "authMiddlewareのテストケースも書いてください。有効なトークン、期限切れトークン、不正なトークンのケースをカバーしてほしい。",
+      "timestamp": "2026-03-19T10:10:00Z"
+    }
+  ],
+  "context": {
+    "files_at_start": [],
+    "files_at_end": [
+      "src/controllers/authController.js",
+      "src/middleware/authMiddleware.js",
+      "src/routes/authRoutes.js",
+      "tests/auth.test.js"
+    ],
+    "branch": "feature/jwt-authentication",
+    "base_commit": "abc123def456"
+  },
+  "commit_hash": "deadbeef12345678",
+  "tags": ["feature", "authentication", "security", "jwt"]
+}

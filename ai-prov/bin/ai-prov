@@ -1,0 +1,160 @@
+#!/usr/bin/env bash
+# bin/ai-prov - AI Provenance ツール メインエントリポイント
+#
+# AIが生成したコードの「文脈（プロンプト・AIツール・意図）」を
+# Gitコミットと紐付けて記録・追跡するツール
+#
+# 使用方法: ai-prov <command> [options]
+
+set -euo pipefail
+
+# スクリプトのディレクトリを取得（シンボリックリンクを解決）
+SCRIPT_DIR="$(cd "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")" && pwd)"
+LIB_DIR="${SCRIPT_DIR}/../lib"
+
+# 共通ユーティリティをロード
+# shellcheck source=../lib/utils.sh
+source "${LIB_DIR}/utils.sh"
+
+# コマンドをロード
+# shellcheck source=../lib/commands/init.sh
+source "${LIB_DIR}/commands/init.sh"
+# shellcheck source=../lib/commands/record.sh
+source "${LIB_DIR}/commands/record.sh"
+# shellcheck source=../lib/commands/commit.sh
+source "${LIB_DIR}/commands/commit.sh"
+# shellcheck source=../lib/commands/log.sh
+source "${LIB_DIR}/commands/log.sh"
+# shellcheck source=../lib/commands/export.sh
+source "${LIB_DIR}/commands/export.sh"
+# shellcheck source=../lib/commands/status.sh
+source "${LIB_DIR}/commands/status.sh"
+
+# ---- メインコマンドディスパッチャー ----
+main() {
+  local command="${1:-help}"
+  shift || true
+
+  case "$command" in
+    # 初期化
+    init)
+      cmd_init "$@"
+      ;;
+
+    # セッション記録
+    record|rec|r)
+      cmd_record "$@"
+      ;;
+
+    # AI Provenanceコミット
+    commit|c)
+      cmd_commit "$@"
+      ;;
+
+    # ログ表示
+    log|l)
+      cmd_log "$@"
+      ;;
+
+    # エクスポート
+    export|exp|e)
+      cmd_export "$@"
+      ;;
+
+    # 状態表示
+    status|st|s)
+      cmd_status "$@"
+      ;;
+
+    # バージョン
+    version|-v|--version)
+      echo "ai-prov version ${AI_PROV_VERSION}"
+      ;;
+
+    # ヘルプ
+    help|-h|--help)
+      show_help
+      ;;
+
+    # 不明なコマンド
+    *)
+      error "不明なコマンド: ${command}"
+      echo ""
+      show_help
+      exit 1
+      ;;
+  esac
+}
+
+# ---- ヘルプ表示 ----
+show_help() {
+  cat << EOF
+
+${BOLD}ai-prov${RESET} - AI Provenance ツール v${AI_PROV_VERSION}
+
+AIが生成したコードの「文脈（プロンプト・AIツール・意図）」を
+Gitコミットと紐付けて記録・追跡します。
+
+${BOLD}使用方法:${RESET}
+  ai-prov <command> [options]
+
+${BOLD}コマンド:${RESET}
+  ${CYAN}init${RESET}                    このリポジトリをai-provで初期化
+  ${CYAN}record${RESET} [start|end|quick] AIセッションを記録
+  ${CYAN}commit${RESET} -m <message>      AI Provenanceを含むコミットを作成
+  ${CYAN}log${RESET} [options]            AI Provenance付きgit logを表示
+  ${CYAN}export${RESET} [--format <fmt>]  Provenanceデータをエクスポート
+  ${CYAN}status${RESET}                  現在の状態と統計を表示
+
+${BOLD}クイックスタート:${RESET}
+  ${BOLD}1.${RESET} リポジトリで初期化:
+     ${GREEN}ai-prov init${RESET}
+
+  ${BOLD}2.${RESET} AIでコーディング前にセッション記録を開始:
+     ${GREEN}ai-prov record${RESET}
+
+  ${BOLD}3.${RESET} AIとのやり取りでコーディング後、コミット:
+     ${GREEN}git add .${RESET}
+     ${GREEN}ai-prov commit -m 'feat: 新機能を追加'${RESET}
+
+  ${BOLD}4.${RESET} AI Provenance付きのログを確認:
+     ${GREEN}ai-prov log${RESET}
+
+  ${BOLD}5.${RESET} レポートをエクスポート:
+     ${GREEN}ai-prov export --format html${RESET}
+
+${BOLD}recordコマンド:${RESET}
+  ${GREEN}ai-prov record${RESET}          インタラクティブモード
+  ${GREEN}ai-prov record start${RESET}    セッション開始（コーディング前）
+  ${GREEN}ai-prov record end${RESET}      セッション終了
+  ${GREEN}ai-prov record quick${RESET}    過去のやり取りをクイック記録
+  ${GREEN}ai-prov record list${RESET}     記録済みセッション一覧
+
+${BOLD}logコマンド:${RESET}
+  ${GREEN}ai-prov log${RESET}             AI Provenance付きログ（デフォルト20件）
+  ${GREEN}ai-prov log -n 50${RESET}       最近50件
+  ${GREEN}ai-prov log -p${RESET}          プロンプト内容も表示
+  ${GREEN}ai-prov log --json${RESET}      JSON形式で出力
+  ${GREEN}ai-prov log --oneline${RESET}   一行形式で出力
+
+${BOLD}commitコマンド:${RESET}
+  ${GREEN}ai-prov commit -m 'message'${RESET}            自動でセッション検出
+  ${GREEN}ai-prov commit -m 'msg' --no-session${RESET}   セッション紐付けなし
+
+${BOLD}exportコマンド:${RESET}
+  ${GREEN}ai-prov export${RESET}                    Markdown形式
+  ${GREEN}ai-prov export --format html${RESET}      HTML形式（ブラウザで表示可）
+  ${GREEN}ai-prov export --format json${RESET}      JSON形式
+  ${GREEN}ai-prov export --format csv${RESET}       CSV形式（スプレッドシート用）
+
+${BOLD}環境変数:${RESET}
+  AI_PROV_TOOL    使用するAIツールを指定（自動検出を上書き）
+                  例: export AI_PROV_TOOL=claude-code
+
+${BOLD}詳細:${RESET}
+  各コマンドの詳細: ai-prov <command> --help
+
+EOF
+}
+
+main "$@"

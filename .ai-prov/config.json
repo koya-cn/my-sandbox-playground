@@ -1,0 +1,12 @@
+{
+  "version": "0.1.0",
+  "initialized_at": "2026-03-19T03:51:08Z",
+  "settings": {
+    "auto_record": false,
+    "use_git_notes": true,
+    "add_trailer": true,
+    "default_tool": "unknown",
+    "require_session_on_commit": false,
+    "session_template": "standard"
+  }
+}

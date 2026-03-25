@@ -1,0 +1,44 @@
+#!/usr/bin/env bash
+# hooks/post-commit - ai-prov Git Hook
+#
+# コミット後にセッション情報を更新し、git notesに保存する
+# インストール先: .git/hooks/post-commit
+
+# ai-prov が初期化されているか確認
+GIT_ROOT=$(git rev-parse --show-toplevel 2>/dev/null) || exit 0
+PROV_DIR="${GIT_ROOT}/.ai-prov"
+NOTES_REF="refs/notes/ai-provenance"
+
+[[ -d "$PROV_DIR" ]] || exit 0
+
+# 直前のコミットハッシュを取得
+COMMIT_HASH=$(git rev-parse HEAD)
+
+# コミットメッセージからセッションIDを抽出
+SESSION_ID=$(git log --no-notes -1 --pretty=format:"%B" HEAD 2>/dev/null | \
+  grep -oP "(?<=AI-Session: )[a-f0-9-]+" | head -1)
+
+[[ -n "$SESSION_ID" ]] || exit 0
+
+SESSION_FILE="${PROV_DIR}/sessions/${SESSION_ID}.json"
+[[ -f "$SESSION_FILE" ]] || exit 0
+
+# セッションファイルを更新（commit_hash と status を更新）
+if command -v jq &>/dev/null; then
+  TMP_FILE="${SESSION_FILE}.tmp"
+  jq \
+    --arg hash "$COMMIT_HASH" \
+    --arg ended "$(date -u +"%Y-%m-%dT%H:%M:%SZ")" \
+    '.commit_hash = $hash | .status = "committed" | (.ended_at //= $ended)' \
+    "$SESSION_FILE" > "$TMP_FILE" && mv "$TMP_FILE" "$SESSION_FILE"
+fi
+
+# git notes にセッション情報を保存
+NOTE_CONTENT=$(cat "$SESSION_FILE")
+git notes --ref="$NOTES_REF" add -f -m "$NOTE_CONTENT" "$COMMIT_HASH" 2>/dev/null || true
+
+# アクティブセッションファイルをクリア
+rm -f "${PROV_DIR}/active_session"
+
+# ユーザーへの通知（静かに）
+echo "[ai-prov] セッション ${SESSION_ID:0:8}... をコミット ${COMMIT_HASH:0:8} に紐付けました"
