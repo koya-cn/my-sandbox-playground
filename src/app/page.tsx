@@ -1,65 +1,114 @@
-import Image from "next/image";
+import Link from "next/link";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+
+interface ToolCard {
+  title: string;
+  description: string;
+  href: string;
+  status: "stable" | "beta" | "coming-soon";
+  tags: string[];
+}
+
+const tools: ToolCard[] = [
+  {
+    title: "Permission Generator",
+    description:
+      "Claude Code の権限ルール（settings.json）を GUI で直感的に構成し、ダウンロードできるツール。プリセット、Dry Run、バリデーション機能付き。",
+    href: "/permission-generator",
+    status: "stable",
+    tags: ["Security", "Settings", "Claude Code"],
+  },
+];
+
+const statusConfig = {
+  stable: { label: "Stable", className: "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200" },
+  beta: { label: "Beta", className: "bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200" },
+  "coming-soon": { label: "Coming Soon", className: "bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400" },
+};
 
 export default function Home() {
   return (
-    <div className="flex flex-col flex-1 items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex flex-1 w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the page.tsx file.
+    <div className="mx-auto w-full max-w-4xl px-4 py-12 sm:px-6 lg:px-8">
+      <header className="mb-12 text-center">
+        <div className="flex items-center justify-center gap-3 mb-4">
+          <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-primary text-primary-foreground font-bold text-xl">
+            SB
+          </div>
+          <h1 className="text-4xl font-bold tracking-tight">
+            Sandbox Playground
           </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
-          </p>
         </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={16}
-            />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
-        </div>
-      </main>
+        <p className="text-muted-foreground text-lg max-w-2xl mx-auto">
+          いろいろ試す実験場。ツールやプロトタイプを自由に置いています。
+        </p>
+      </header>
+
+      <div className="grid gap-4 sm:grid-cols-2">
+        {tools.map((tool) => {
+          const status = statusConfig[tool.status];
+          const isClickable = tool.status !== "coming-soon";
+
+          const card = (
+            <Card
+              className={`transition-all ${isClickable ? "hover:border-primary/50 hover:shadow-md cursor-pointer" : "opacity-60"}`}
+            >
+              <CardHeader>
+                <div className="flex items-center justify-between">
+                  <CardTitle className="text-lg">{tool.title}</CardTitle>
+                  <span
+                    className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${status.className}`}
+                  >
+                    {status.label}
+                  </span>
+                </div>
+                <CardDescription className="leading-relaxed">
+                  {tool.description}
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="flex flex-wrap gap-1.5">
+                  {tool.tags.map((tag) => (
+                    <Badge key={tag} variant="secondary" className="text-xs">
+                      {tag}
+                    </Badge>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+          );
+
+          if (!isClickable) return <div key={tool.href}>{card}</div>;
+
+          return (
+            <Link key={tool.href} href={tool.href} className="no-underline">
+              {card}
+            </Link>
+          );
+        })}
+
+        {/* Placeholder for future tools */}
+        <Card className="border-dashed opacity-50">
+          <CardHeader>
+            <CardTitle className="text-lg text-muted-foreground">
+              + New Tool
+            </CardTitle>
+            <CardDescription>
+              次のツールがここに追加されます
+            </CardDescription>
+          </CardHeader>
+        </Card>
+      </div>
+
+      <footer className="text-muted-foreground mt-16 text-center text-sm">
+        <p>Sandbox Playground</p>
+      </footer>
     </div>
   );
 }

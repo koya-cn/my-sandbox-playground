@@ -46,12 +46,42 @@ Claude Codeの設定は、複数のスコープにわたる厳格な優先順位
 
 パス指定の誤りは、ルール回避（Vulnerability）に直結します。本ジェネレーターは、以下の二種類の構文を厳密に使い分ける必要があります。
 
-権限ルール vs サンドボックス設定の構文差異
+Permission Rules のパスパターン仕様（公式ドキュメント準拠）
 
-| 適用対象 | 絶対パスの指定方法 | 相対パスの指定方法 |
-|----------|-------------------|-------------------|
-| Permission Rules (Read / Edit) | ダブルスラッシュ `//` 例: `//Users/admin/.ssh` | シングルスラッシュ `/` または `./` 例: `/src/index.ts` |
-| Sandbox Config (allowWrite / denyRead) | シングルスラッシュ `/` 例: `/tmp/build` | `./` または 接頭辞なし 例: `./output` |
+Claude Code 公式ドキュメント（`code.claude.com/docs/en/permissions`）に基づくパスパターンは以下の4種類:
+
+| パターン | 意味 | 例 | マッチ対象 |
+|----------|------|-----|-----------|
+| `//path` | ファイルシステムルートからの**絶対パス** | `Read(//Users/alice/secrets/**)` | `/Users/alice/secrets/**` |
+| `~/path` | **ホームディレクトリ**からのパス | `Read(~/Documents/*.pdf)` | `/Users/alice/Documents/*.pdf` |
+| `/path` | **プロジェクトルート**からの相対パス | `Edit(/src/**/*.ts)` | `<project root>/src/**/*.ts` |
+| `path` or `./path` | **カレントディレクトリ**からの相対パス | `Read(*.env)` | `<cwd>/*.env` |
+
+**注意**: `/Users/alice/file` は絶対パスではなく、プロジェクトルートからの相対パスとして解釈される。絶対パスには必ず `//` プレフィックスが必要。
+
+Permission Rules のルール文字列フォーマット
+
+Claude Code の設定ファイルでは、権限ルールは `Tool(specifier)` 形式の文字列として記述する:
+
+```json
+{
+  "permissions": {
+    "allow": [
+      "Bash(npm run *)",
+      "Read(src/**)",
+      "Edit(/src/**/*.ts)"
+    ],
+    "deny": [
+      "Bash(git push *)",
+      "Read(*.env)",
+      "Read(**/.env)",
+      "Read(//Users/alice/.ssh/**)"
+    ]
+  }
+}
+```
+
+ジェネレーターは内部的にはオブジェクト形式 `{ tool, path?, command? }` で管理するが、最終出力時には上記の文字列フォーマットに変換すること。
 
 Globパターンとセキュリティ実装
 
@@ -268,9 +298,55 @@ Vibe Coding プリセットにおける auto モードのフォールバック: 
 * **保存形式**: プリセットは JSON ファイルとしてエクスポートし、`.claude/presets/` ディレクトリまたは任意のパスに保存
 * **共有**: Git リポジトリにプリセットファイルを含めることで、チーム間で統一的な権限設定を適用可能
 * **合成（Compose）**: 複数のプリセットを組み合わせて適用可能（例: 「Python バックエンド」+「Hardened Security」）。競合するルールは deny 優先の原則に従い解決
-* インテリジェント・ツールチップ:
-  * パス入力時、権限ルール（//）とサンドボックス（/）の構文差分をリアルタイムで警告。
-* 統合監査機能（Sanity Check）:
+
+パス構文のインラインバリデーション
+
+パス入力フィールドでは、以下のリアルタイム警告を表示する:
+
+* **`/` 始まりの検出**: Permission Rules の絶対パスは `//` プレフィックスが必要。`/` で始まるパスを入力した場合、「Permission Rules の絶対パスは `//` プレフィックスです（例: `//.ssh/**`）」と即時警告を表示する。
+* **Glob 構文エラー**: 未閉じの `[` や無効な `**` 位置を検出した場合に警告を表示する。
+
+公式ドキュメントへのリンク統合
+
+各UIセクションのカードヘッダーにインフォアイコン（i マーク）を配置し、対応する Claude Code 公式ドキュメントのセクションへ直接リンクする。リンク先はすべて `https://code.claude.com/docs/en/` 配下とする。
+
+| UIセクション | リンク先パス | ラベル |
+|-------------|-------------|--------|
+| ヘッダー（グローバル） | `permissions` | Permissions |
+| ヘッダー（グローバル） | `settings` | Settings |
+| ヘッダー（グローバル） | `sandboxing` | Sandbox |
+| Presets | `permissions#example-configurations` | Examples |
+| Permission Rules | `permissions#permission-rule-syntax` | Docs |
+| Permission Mode | `permissions#permission-modes` | — |
+| Sandbox | `sandboxing` | Docs |
+| Output | `settings#settings-files` | Settings Files |
+| Dry Run | `permissions#manage-permissions` | — |
+
+ステップガイドUI
+
+ヘッダー直下に3ステップの操作フローカードを表示し、初回ユーザーが迷わず操作できるようにする:
+
+1. **プリセットを選ぶ or ルールを手動追加** — 開発環境に合ったプリセットでベースを設定。カスタムルールの追加も可能。
+2. **モードとサンドボックスを調整** — 動作モード（default / auto / acceptEdits 等）とネットワーク制限を設定。
+3. **Validate & Download** — 設定の整合性を検証し、Dry Run で動作を確認。JSON をコピーまたはダウンロード。
+
+各セクションの詳細説明テキスト
+
+各 UI コンポーネントの CardDescription には、以下の情報を含めること:
+
+* **そのセクションが何を制御するか**の一文説明
+* **初心者向けのヒント**（例: 「Deny は常に Allow に優先する Fail-closed 設計です」）
+* **Permission Mode**: 各モードに対して、推奨ユースケースとリスクレベルに加え、2〜3文の詳細説明を表示する。`bypassPermissions` 選択時は赤い警告アラートを表示する。
+* **Rule Editor**: Deny / Ask / Allow の各タブ内に、そのアクションの意味と使用例を背景色付きブロックで表示する。
+
+リアルタイムプレビュー連動
+
+左カラム（Configure）での設定変更は、右カラム（Output）の JSON プレビューに即時反映される。
+
+* 実装上、Zustand ストアの `settings` オブジェクトを依存配列に含め、変更検知時にJSON出力を再生成する。
+* `_generatedAt` 等のタイムスタンプはクライアント側でのみ生成する（SSR/Hydration 不整合の回避）。
+
+統合監査機能（Sanity Check）:
   * 新しく deny ルールを追加する際、既に ~/.claude/file-history/ に当該ファイルのコピーが存在しないかスキャンし、削除を促す機能。
 
 8. セキュリティ・ガードレールとベストプラクティス
@@ -371,42 +447,46 @@ Matched rule: { "tool": "Edit", "path": "src/**" } (permissions.allow[3])
 ```
 src/
 ├── app/
-│   ├── layout.tsx              # ルートレイアウト
-│   ├── page.tsx                # メインページ（ジェネレーターUI）
+│   ├── layout.tsx                # ルートレイアウト
+│   ├── page.tsx                  # メインページ（ジェネレーターUI + ステップガイド）
 │   └── globals.css
 ├── components/
-│   ├── preset-selector/        # プリセット選択UI
-│   ├── rule-editor/            # 権限ルール編集フォーム
-│   │   ├── permission-row.tsx  # allow/deny/ask 行コンポーネント
-│   │   ├── path-input.tsx      # パス入力（構文警告付き）
-│   │   └── mcp-tool-input.tsx  # MCP ツール名入力
-│   ├── mode-selector/          # 動作モード選択
-│   ├── sandbox-config/         # サンドボックス設定
-│   ├── dry-run/                # ドライランシミュレータ
-│   ├── output-preview/         # JSON出力プレビュー + コピー
-│   └── scope-selector/         # 出力先スコープ選択（User/Project/Managed）
+│   ├── ui/                       # shadcn/ui ベースコンポーネント
+│   │   ├── info-link.tsx         # 公式ドキュメントへのリンクアイコン
+│   │   ├── button.tsx, card.tsx, select.tsx, ...
+│   ├── preset-selector/          # プリセット選択UI
+│   ├── rule-editor/              # 権限ルール編集フォーム
+│   │   └── permission-row.tsx    # allow/deny/ask 行（ツール選択 + パス入力 + 構文警告）
+│   ├── mode-selector/            # 動作モード選択（詳細説明 + リスク表示）
+│   ├── sandbox-config/           # サンドボックス設定（allowedHosts 管理）
+│   ├── dry-run/                  # ドライランシミュレータ
+│   ├── output-preview/           # JSON出力プレビュー + Copy/Download + バリデーション
+│   └── scope-selector/           # 出力先スコープ選択（User/Project/Managed）
 ├── lib/
 │   ├── schema/
-│   │   ├── settings.ts         # Zod スキーマ定義
-│   │   └── presets.ts          # プリセット定義データ
+│   │   ├── settings.ts           # Zod スキーマ定義
+│   │   └── presets.ts            # プリセット定義データ（6プリセット）
 │   ├── engine/
-│   │   ├── rule-evaluator.ts   # ルール評価エンジン（deny優先ロジック）
-│   │   ├── path-expander.ts    # Deny ルール自動展開（4パターン生成）
-│   │   └── validator.ts        # 論理整合性チェック
+│   │   ├── rule-evaluator.ts     # ルール評価エンジン（deny優先ロジック）
+│   │   ├── path-expander.ts      # Deny ルール自動展開（4パターン生成）
+│   │   ├── validator.ts          # 論理整合性チェック
+│   │   └── settings-generator.ts # 最終JSON出力生成（メタデータ付与）
 │   └── utils/
-│       └── glob-matcher.ts     # micromatch ラッパー
+│       └── glob-matcher.ts       # micromatch ラッパー
 ├── stores/
-│   └── generator-store.ts      # Zustand ストア
+│   └── generator-store.ts        # Zustand ストア（全UI状態の一元管理）
 └── types/
-    └── settings.d.ts           # Claude Code settings.json 型定義
+    └── settings.ts               # Claude Code settings.json 型定義
 ```
 
 主要コンポーネントの責務
 
-* **rule-evaluator.ts**: セクション3で定義した deny > ask > allow > fallback(ask) の評価順序を実装。ドライラン機能のコアロジック。
+* **rule-evaluator.ts**: セクション3で定義した deny > ask > allow > fallback(ask) の評価順序を実装。ドライラン機能のコアロジック。MCP ツールのワイルドカードマッチング（`mcp__*__*`）にも対応。
 * **path-expander.ts**: セクション4で定義した4パターン自動生成を担当。入力されたパスから Permission Rules 用と Sandbox Config 用の両方の deny ルールを展開。
-* **validator.ts**: セクション9のスキーマバリデーション・論理整合性チェックを実行。allow/deny の競合検出、Glob 構文の妥当性検証を含む。
-* **output-preview**: 生成された JSON をシンタックスハイライト付きで表示。クリップボードコピーおよびファイルダウンロード（`.json`）を提供。
+* **validator.ts**: セクション9のスキーマバリデーション・論理整合性チェックを実行。allow/deny の競合検出、Glob 構文の妥当性検証、機密パス未設定の警告、bypassPermissions/auto モードのリスク警告を含む。
+* **settings-generator.ts**: Zustand ストアの内部状態から最終的な JSON 出力を生成。メタデータ（`_schemaVersion`, `_generatedAt`, `_generatorVersion`）の付与、空ルールのフィルタリングを担当。
+* **generator-store.ts**: Zustand による全UI状態の一元管理。プリセット適用、ルール CRUD、モード切替、サンドボックス設定、ドライラン実行、バリデーション実行を提供。
+* **info-link.tsx**: 各セクションカードに配置する公式ドキュメントへのリンクアイコンコンポーネント。ベースURL `https://code.claude.com/docs/en/` を共通定義し、相対パスで各セクションにリンク。
 
 ビルドと出力
 
@@ -427,8 +507,11 @@ npx serve out
 ```typescript
 import type { NextConfig } from 'next'
 
+const isProd = process.env.NODE_ENV === 'production'
+
 const nextConfig: NextConfig = {
   output: 'export',
+  basePath: isProd ? '/my-sandbox-playground' : '',
   images: {
     unoptimized: true,
   },
@@ -436,6 +519,44 @@ const nextConfig: NextConfig = {
 
 export default nextConfig
 ```
+
+マルチツール構成とルーティング
+
+本ジェネレーターは複数ツールを収容するハブサイトのサブルートとして配置する:
+
+| パス | 内容 |
+|------|------|
+| `/` | ツール一覧ハブページ |
+| `/permission-generator` | 本ジェネレーター |
+| `/another-tool` | 将来のツール（拡張用） |
+
+`basePath` は GitHub Pages のリポジトリ名パス（`/my-sandbox-playground`）に対応し、本番ビルド時のみ付与される。開発時は空文字となる。
+
+デプロイ構成
+
+| 環境 | ホスト | 用途 | トリガー |
+|------|--------|------|---------|
+| 本番 | GitHub Pages | 公開サイト | `main` ブランチへの push |
+| プレビュー | Vercel | PR ごとのプレビューURL | PR 作成・更新時 |
+
+GitHub Pages へのデプロイは GitHub Actions（`.github/workflows/deploy.yml`）で自動化する。`npm run build` の出力（`out/` ディレクトリ）を `actions/upload-pages-artifact` でアップロードし、`actions/deploy-pages` でデプロイする。
+
+公開URL: `https://koya-cn.github.io/my-sandbox-playground/`
+
+レスポンシブ・UI品質要件
+
+* **Select コンポーネント**: トリガー要素は親コンテナの全幅（`w-full`）を占める。ドロップダウンのポップアップはトリガーと同じ幅を最小幅とし、内容が長い場合は自動拡張する。
+* **テキストオーバーフロー**: Select 内の説明テキストや長いパス文字列は `truncate`（省略表示）で処理する。プリセットボタン内のテキストは `whitespace-normal` で折り返す。
+* **JSON プレビュー**: `break-all whitespace-pre-wrap` で長い文字列を折り返し、横スクロールを最小化する。ScrollArea で縦方向にスクロール可能にする。
+* **Permission Row**: flex レイアウトで `min-w-0` を設定し、子要素の縮小を許可。ツール Select は `shrink-0` で固定幅を維持し、パス入力が残りの幅を占める。
+* **モバイル対応**: 2カラムレイアウト（Configure / Output）は `lg:` ブレークポイントで切り替え、モバイルでは1カラムにスタックする。
+
+SSR/Hydration 対策
+
+Next.js の静的エクスポートでは、サーバーレンダリング時とクライアント側でHTMLが一致する必要がある（Hydration）。以下の対策を適用する:
+
+* **動的な値**（`new Date().toISOString()` 等のタイムスタンプ）はサーバー側でレンダリングせず、`useEffect` でクライアント側のみで生成する。
+* **Zustand ストアの関数参照**: `useEffect` の依存配列には関数参照ではなく、実際のデータ（`settings` オブジェクト等）を含めることで、状態変更時の再レンダリングを確実にする。
 
 セキュリティ上の考慮事項
 
@@ -450,14 +571,23 @@ export default nextConfig
 * **仕様書バージョン**: 本仕様書は Semantic Versioning に従い管理する。現在のバージョンは `v1.0.0`。
 * **設定スキーマバージョン**: 生成されるJSONに `_schemaVersion` フィールドを付与し、互換性を追跡する。
 
+JSON フィールド順序の規約
+
+メタ情報は常に JSON の最上部に配置し、設定本体はその後に続ける。この順序はすべての出力で一貫して保持すること。
+
 ```json
 {
   "_schemaVersion": "1.0.0",
   "_generatedAt": "2026-03-25T00:00:00Z",
   "_generatorVersion": "1.0.0",
-  "permissions": { ... }
+  "permissions": { ... },
+  "permissionMode": "...",
+  "sandbox": { ... },
+  "autoMode": { ... }
 }
 ```
+
+実装方法: `{ ...meta, ...body }` の順でオブジェクトをスプレッドすることで、メタ → 設定本体の順序を保証する。
 
 Claude Code バージョンとの互換性
 
